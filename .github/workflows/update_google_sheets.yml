@@ -21,6 +21,6 @@ jobs:
         -d '{
               "issue_number": "${{ github.event.issue.number }}",
               "title": "${{ github.event.issue.title }}",
-              "body": "${{ github.event.issue.body }}"
+              "url": "'${{ github.event.issue.html_url }}'"
             }' \
         $GOOGLE_APPS_SCRIPT_URL
