@@ -1,0 +1,56 @@
+name: Integrate GitHub Issues with Jira
+
+on:
+  issues:
+    types: [opened]  # Se activa cuando se crea un nuevo issue
+  pull_request:
+    types: [opened]  # Se activa cuando se crea un nuevo pull request
+
+jobs:
+  create-jira-issue:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Paso 1: Obtener los topics del repositorio
+      - name: Get Topics
+        id: get-topics
+        run: |
+          # Obtener los topics del repositorio
+          topics=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/topics")
+          
+          # Extraer el project key que comienza con 'jira-' y convertir a mayúsculas
+          project_key=$(echo "$topics" | jq -r '.names[] | select(startswith("jira-")) | ascii_upcase')
+
+          # Si se encuentra un código, almacenar en la variable de entorno
+          if [ -n "$project_key" ]; then
+            echo "project_key=$project_key" >> $GITHUB_ENV
+          else
+            echo "project_key=NoJiraCode" >> $GITHUB_ENV  # Manejo de error si no se encuentra
+          fi
+
+      # Paso 2: Crear el issue en Jira
+      - name: Create Issue in Jira
+        env:
+          JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_URL: ${{ secrets.JIRA_URL }}
+        run: |
+          # Define the payload
+          payload=$(jq -n \
+            --arg project_key "${{ env.project_key }}" \
+            --arg summary "${{ github.event.issue.title || github.event.pull_request.title }}" \
+            --arg issue_type "Tarea" \
+            '{
+              fields: {
+                project: { key: $project_key },
+                summary: $summary,
+                issuetype: { name: $issue_type }
+              }
+            }')
+
+          # Send the POST request to Jira
+          curl -X POST -H "Content-Type: application/json" \
+            -u "$JIRA_USERNAME:$JIRA_API_TOKEN" \
+            --data "$payload" \
+            "$JIRA_URL/rest/api/2/issue/"
