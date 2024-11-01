@@ -18,6 +18,10 @@ jobs:
         tags=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
           "https://api.github.com/repos/${{ github.repository }}/tags")
         
+        # Imprimir los tags encontrados en el log
+        echo "Tags encontrados:"
+        echo "$tags" | jq -r '.[] | .name'
+        
         # Buscar el tag que comience con 'jira-' y extraer el código
         jira_code=$(echo "$tags" | jq -r '.[] | select(.name | startswith("jira-")) | .name' | sed 's/jira-//')
         
