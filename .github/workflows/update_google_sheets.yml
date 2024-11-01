@@ -1,0 +1,26 @@
+name: Add User Story to Google Sheets
+
+# Definir el evento que activará el workflow
+on:
+  issues:
+    types: [opened]  # Se activará cuando se cree un issue nuevo
+
+jobs:
+  update-google-sheets:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Paso 1: Enviar los datos de la historia de usuario a Google Sheets
+    - name: Send Data to Google Sheets Web App
+      # Definir la URL del Web App como una variable de entorno
+      env:
+        GOOGLE_APPS_SCRIPT_URL: ${{ secrets.GOOGLE_APPS_SCRIPT_URL }}
+      run: |
+        # Usar curl para enviar una solicitud POST al Web App con los datos del issue
+        curl -X POST -H "Content-Type: application/json" \
+        -d '{
+              "issue_number": "${{ github.event.issue.number }}",
+              "title": "${{ github.event.issue.title }}",
+              "body": "${{ github.event.issue.body }}"
+            }' \
+        $GOOGLE_APPS_SCRIPT_URL
