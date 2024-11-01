@@ -36,6 +36,9 @@ jobs:
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
           JIRA_URL: ${{ secrets.JIRA_URL }}
         run: |
+          # Imprimir la URL de la API de Jira
+          echo "Jira API URL: $JIRA_URL/rest/api/2/issue/"
+
           # Define el payload
           payload=$(jq -n \
             --arg project_key "${{ env.project_key }}" \
@@ -48,6 +51,9 @@ jobs:
                 issuetype: { name: $issue_type }
               }
             }')
+
+          # Imprimir el payload para verificación
+          echo "Payload: $payload"
 
           # Enviar la solicitud POST a Jira
           curl -X POST -H "Content-Type: application/json" \
