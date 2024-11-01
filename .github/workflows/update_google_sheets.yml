@@ -10,11 +10,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # Paso 1: Enviar los datos de la historia de usuario a Google Sheets
+    # Paso 1: Obtener los tags del repositorio y extraer el código de Jira
+    - name: Get Jira Code from Tags
+      id: get-jira-code
+      run: |
+        # Obtener los tags del repositorio
+        tags=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          "https://api.github.com/repos/${{ github.repository }}/tags")
+        
+        # Buscar el tag que comience con 'jira-' y extraer el código
+        jira_code=$(echo "$tags" | jq -r '.[] | select(.name | startswith("jira-")) | .name' | sed 's/jira-//')
+        
+        # Si se encuentra un código, almacenar en la variable de entorno
+        if [ -n "$jira_code" ]; then
+          echo "jira_code=$jira_code" >> $GITHUB_ENV
+        else
+          echo "jira_code=NoJiraCode" >> $GITHUB_ENV  # Manejo de error si no se encuentra
+        fi
+
+    # Paso 2: Enviar los datos de la historia de usuario a Google Sheets
     - name: Send Data to Google Sheets Web App
       # Definir la URL del Web App como una variable de entorno
       env:
         GOOGLE_APPS_SCRIPT_URL: ${{ secrets.GOOGLE_APPS_SCRIPT_URL }}
+        JIRA_CODE: ${{ env.jira_code }}  # Usar el código de Jira como variable
       run: |
         # Usar curl para enviar una solicitud POST al Web App con los datos del issue
         curl -X POST -H "Content-Type: application/json" \
@@ -22,6 +41,7 @@ jobs:
               "issue_number": "${{ github.event.issue.number }}",
               "title": "${{ github.event.issue.title }}",
               "url": "'${{ github.event.issue.html_url }}'",
-              "repository_name": "'${{ github.repository }}'"  
+              "repository_name": "'${{ github.repository }}'",
+              "jira_code": "'$JIRA_CODE'"  
             }' \
         $GOOGLE_APPS_SCRIPT_URL
