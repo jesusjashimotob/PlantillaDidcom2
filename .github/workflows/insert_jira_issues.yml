@@ -11,32 +11,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Paso 1: Obtener los topics del repositorio
-      - name: Get Topics
-        id: get-topics
+      # Paso 1: Obtener el project key de los topics del repositorio
+      - name: Get Project Key from Topics
+        id: get-project-key
         run: |
           # Obtener los topics del repositorio
           topics=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/${{ github.repository }}/topics")
-          
-          # Extraer el project key que comienza con 'jira-' y convertir a mayúsculas
-          project_key=$(echo "$topics" | jq -r '.names[] | select(startswith("jira-")) | ascii_upcase')
 
-          # Si se encuentra un código, almacenar en la variable de entorno
+          # Buscar el topic que comience con 'jira-' y convertirlo a mayúsculas
+          project_key=$(echo "$topics" | jq -r '.names[] | select(startswith("jira-")) | ascii_upcase | gsub("JIRA-"; "")')
+
+          # Si se encuentra un project key, almacenarlo en la variable de entorno
           if [ -n "$project_key" ]; then
             echo "project_key=$project_key" >> $GITHUB_ENV
           else
-            echo "project_key=NoJiraCode" >> $GITHUB_ENV  # Manejo de error si no se encuentra
+            echo "project_key=NO_PROJECT_KEY" >> $GITHUB_ENV  # Manejo de error si no se encuentra
           fi
 
-      # Paso 2: Crear el issue en Jira
+      # Paso 2: Crear un issue en Jira
       - name: Create Issue in Jira
         env:
           JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
           JIRA_URL: ${{ secrets.JIRA_URL }}
         run: |
-          # Define the payload
+          # Define el payload
           payload=$(jq -n \
             --arg project_key "${{ env.project_key }}" \
             --arg summary "${{ github.event.issue.title || github.event.pull_request.title }}" \
@@ -49,7 +49,7 @@ jobs:
               }
             }')
 
-          # Send the POST request to Jira
+          # Enviar la solicitud POST a Jira
           curl -X POST -H "Content-Type: application/json" \
             -u "$JIRA_USERNAME:$JIRA_API_TOKEN" \
             --data "$payload" \
