@@ -21,6 +21,7 @@ jobs:
         -d '{
               "issue_number": "${{ github.event.issue.number }}",
               "title": "${{ github.event.issue.title }}",
-              "url": "'${{ github.event.issue.html_url }}'"
+              "url": "'${{ github.event.issue.html_url }}'",
+              "repository_name": "'${{ github.repository }}'"  # Agregar el nombre del repositorio
             }' \
         $GOOGLE_APPS_SCRIPT_URL
