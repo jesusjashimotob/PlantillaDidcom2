@@ -1,0 +1,45 @@
+# Ignore List for Microchip's MPLAB X IDE
+# It's a form of NetBeans with vendor specific changes
+# Taken from zeha on GIST https://gist.github.com/zeha/5999375
+# Updated by Cristian Cristea (https://github.com/cristiancristea00)
+# For this proyect
+# Ignorar archivos de compilación y salida
+*.d
+*.pre
+*.p1
+*.lst
+*.sym
+*.obj
+*.o
+*.sdb
+*.obj.dmp
+*.map
+*.production
+*.debug
+
+# Ignorar archivos y directorios específicos de MPLAB X
+html/
+firmware/*/nbproject/private/
+firmware/*/nbproject/Package-*.bash
+firmware/*/build/
+firmware/*/nbbuild/
+firmware/*/dist/
+firmware/*/nbdist/
+nbactions.xml
+firmware/*/nb-configuration.xml
+firmware/*/funclist
+firmware/*/disassembly/
+firmware/*/.generated_files/
+
+# Ignorar archivos Makefile específicos generados por MPLAB X
+firmware/*/nbproject/Makefile-*
+
+# Ignorar archivos de dependencia en otros proyectos
+dependencies/BOOTLOADER_SAMC21/firmware/BOOTLOADER_SAMC21.X/nbproject/Makefile-*
+dependencies/BOOTLOADER_SAMC21/firmware/BOOTLOADER_SAMC21.X/nbproject/Makefile-genesis.properties
+dependencies/BOOTLOADER_SAMC21/firmware/BOOTLOADER_SAMC21.X/nbproject/Makefile-impl.mk
+dependencies/BOOTLOADER_SAMC21/firmware/BOOTLOADER_SAMC21.X/nbproject/Makefile-local-*.mk
+dependencies/BOOTLOADER_SAMC21/firmware/BOOTLOADER_SAMC21.X/nbproject/Makefile-variables.mk
+
+# Ignorar todo el directorio de dependencias
+dependencies/
