@@ -35,6 +35,7 @@ jobs:
           JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
           JIRA_URL: ${{ secrets.JIRA_URL }}
+        id: create-jira-issue
         run: |
           # Imprimir la URL de la API de Jira
           echo "Jira API URL: $JIRA_URL/rest/api/2/issue/"
@@ -56,7 +57,37 @@ jobs:
           echo "Payload: $payload"
 
           # Enviar la solicitud POST a Jira
-          curl -X POST -H "Content-Type: application/json" \
+          response=$(curl -X POST -H "Content-Type: application/json" \
             -u "$JIRA_USERNAME:$JIRA_API_TOKEN" \
             --data "$payload" \
-            "$JIRA_URL/rest/api/2/issue/"
+            "$JIRA_URL/rest/api/2/issue/")
+          
+          # Obtener el key del issue creado en Jira
+          jira_issue_key=$(echo "$response" | jq -r '.key')
+
+          # Imprimir el key del issue de Jira
+          echo "Jira Issue Key: $jira_issue_key"
+
+      # Paso 3: Crear un label en GitHub con el key del issue de Jira
+      - name: Create Label in GitHub
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Crear un label con el key del issue de Jira
+          label_name="${jira_issue_key}"
+          label_color="f2951d"  # Cambia este color según sea necesario
+
+          # Definir el payload para crear el label
+          label_payload=$(jq -n \
+            --arg name "$label_name" \
+            --arg color "$label_color" \
+            '{
+              name: $name,
+              color: $color
+            }')
+
+          # Crear el label en GitHub
+          curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            --data "$label_payload" \
+            "https://api.github.com/repos/${{ github.repository }}/labels"
