@@ -14,7 +14,7 @@ jobs:
         env:
           # GOOGLE_SCRIPT_URL: ${{ secrets.GOOGLE_SCRIPT_URL }}  # Comentada
           GOOGLE_SCRIPT_URL: 'https://script.google.com/a/macros/didcom.com.mx/s/AKfycbzXjxxQfmjHZDSdh3d18TTEY1XNgHnm7HnLN3oUbhyw0ktTLSL4wJAFQyiU0t7ayjjy/exec'  # URL de tu script          
-          //la url sera un secret a nivel organizacion
+          #la url sera un secret a nivel organizacion
           REPO_NAME: ${{ github.repository }}
         
         run: |
