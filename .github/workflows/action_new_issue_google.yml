@@ -1,0 +1,36 @@
+name: Send New Issue to Google Sheets
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  sendIssueData:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send Issue Data to Google Sheets
+        env:
+          WEBHOOK_URL: "https://script.google.com/macros/s/AKfycbzrOWdQe93O-0-ZVkLzVuqJi7a0ZByGIseTl_K3gOkibawugVFJkhyPlOcc6nBatsGE/exec"
+        run: |
+          # Extraer el nombre del repositorio y los datos del issue
+          repo_name="${{ github.repository }}"
+          issue_title="${{ github.event.issue.title }}"
+          issue_user="${{ github.event.issue.user.login }}"
+          issue_url="${{ github.event.issue.html_url }}"
+
+          # Buscar el patrón jira-xxx en el título del issue
+          jira_project=$(echo "$issue_title" | grep -oE 'jira-([a-zA-Z0-9]+)' | cut -d '-' -f 2 || echo "no definido")
+
+          # Crear el objeto JSON a enviar
+          json_payload=$(jq -n \
+            --arg repoName "$repo_name" \
+            --arg title "$issue_title" \
+            --arg createdBy "$issue_user" \
+            --arg url "$issue_url" \
+            --arg jiraProject "$jira_project" \
+            '{repoName: $repoName, issue: {title: $title, createdBy: $createdBy, url: $url, jiraProject: $jiraProject}}'
+          )
+
+          # Enviar el objeto JSON a la URL usando curl
+          curl -X POST -H "Content-Type: application/json" -d "$json_payload" "$WEBHOOK_URL"
