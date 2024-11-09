@@ -1,28 +1,17 @@
-name: Trigger Action on specific comment
+name: Detectar Labeled en Issues
 
 on:
-  issue_comment:
-    types:
-      - created  # El action se activa cuando se crea un comentario en un issue.
+  issues:
+    types: [labeled]  # Este evento se dispara cuando un label es asignado a un issue
 
 jobs:
-  check_movement_comment:
-    runs-on: ubuntu-latest
-
+  show_label_info:
+    runs-on: ubuntu-latest  # El runner en el que se ejecutará el job
+    
     steps:
-      - name: Check if the comment matches the movement pattern
-        run: |
-          COMMENT_BODY="${{ github.event.comment.body }}"
-          echo "New comment on issue: $COMMENT_BODY"
-          
-          # Verificar si el comentario contiene el texto específico "moved this from"
-          if [[ "$COMMENT_BODY" == *"moved this from"* ]]; then
-            echo "Movement detected in comment"
-            
-            # Aquí puedes ejecutar cualquier acción que necesites, como enviar el comentario a un servicio.
-            curl -X POST "https://script.google.com/macros/s/AKfycbxhApYr834vi421taQw6mH8eS0Nl8tWmVxOI_KB6da7L_gN80yNlo0BorscDAOnT1y0/exec" \
-              -H "Content-Type: application/json" \
-              -d '{"repoName": "${{ github.repository }}", "issue": {"title": "${{ github.event.issue.title }}", "url": "${{ github.event.issue.html_url }}", "comment": "'$COMMENT_BODY'"}}'
-          else
-            echo "No movement detected"
-          fi
+    - name: Mostrar información del label
+      run: |
+        echo "Se ha etiquetado un issue"
+        echo "Número de Issue: ${{ github.event.issue.number }}"
+        echo "Título del Issue: ${{ github.event.issue.title }}"
+        echo "Etiqueta aplicada: ${{ github.event.label.name }}"
