@@ -1,0 +1,50 @@
+name: Send Issue Data to Google Sheets on Assignee Change
+
+on:
+  issues:
+    types: [assigned]
+
+jobs:
+  sendIssueData:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get Repository Topics
+        id: topics
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Obtener los topics del repositorio
+          response=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.com/repos/${{ github.repository }}/topics" \
+            -H "Accept: application/vnd.github.mercy-preview+json")
+          
+          # Extraer el topic que empieza con "jira-" o asignar "no definido"
+          jira_project=$(echo "$response" | jq -r '.names[] | select(startswith("jira-"))' | cut -d '-' -f 2 || echo "no definido")
+          echo "jira_project=$jira_project" >> $GITHUB_ENV
+
+      - name: Send Issue Data to Google Sheets
+        env:
+          WEBHOOK_URL: "https://script.google.com/macros/s/AKfycbxhApYr834vi421taQw6mH8eS0Nl8tWmVxOI_KB6da7L_gN80yNlo0BorscDAOnT1y0/exec"
+        run: |
+          # Extraer el nombre del repositorio, el título y la URL del issue
+          repo_name="${{ github.repository }}"
+          issue_title="${{ github.event.issue.title }}"
+          issue_url="${{ github.event.issue.html_url }}"
+          
+          # Obtener el código de proyecto de Jira y el nombre del recurso asignado
+          jira_project="${{ env.jira_project }}"
+          assignee="${{ github.event.assignee.login }}"  # Nombre del recurso asignado
+
+          # Crear el objeto JSON a enviar
+          json_payload=$(jq -n \
+            --arg repoName "$repo_name" \
+            --arg title "$issue_title" \
+            --arg url "$issue_url" \
+            --arg jiraProject "$jira_project" \
+            --arg columnName "$assignee" \
+            '{repoName: $repoName, issue: {title: $title, url: $url, jiraProject: $jiraProject, columnName: $columnName}}'
+          )
+
+          # Enviar el objeto JSON a la URL usando curl
+          curl -X POST -H "Content-Type: application/json" -d "$json_payload" "$WEBHOOK_URL"
