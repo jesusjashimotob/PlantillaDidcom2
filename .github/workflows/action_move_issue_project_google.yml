@@ -17,10 +17,11 @@ jobs:
         ISSUE_TITLE="${{ github.event.issue.title }}"
         ISSUE_URL="${{ github.event.issue.html_url }}"
         
-        # Buscar el proyecto JIRA a partir del topic en el repositorio
+        # Lógica para obtener el proyecto JIRA:
+        # Verificar si el nombre del repositorio contiene "jira-" y extraer el código
         JIRA_PROJECT="no definido"
-        if [[ "$REPO_NAME" == *"jira-"* ]]; then
-          JIRA_PROJECT="${REPO_NAME##*-}"  # Extrae el código de jira-xxx
+        if [[ "$REPO_NAME" =~ ^jira-([a-zA-Z0-9_-]+) ]]; then
+          JIRA_PROJECT="${BASH_REMATCH[1]}"  # Extrae el código de jira-xxx
         fi
 
         # Obtener el nombre del label (la columna del tablero de Projects)
