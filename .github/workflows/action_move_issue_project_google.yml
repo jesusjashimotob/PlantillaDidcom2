@@ -1,0 +1,60 @@
+name: Send Moved Issue to Google Sheets
+
+on:
+  project_card:
+    types: [moved]
+
+jobs:
+  sendIssueData:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check if Project Card is an Issue
+        id: check_issue
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Obtener los datos del Project Card para verificar si está vinculado a un issue
+          card_content_url=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            "${{ github.event.project_card.content_url }}" | jq -r '.url')
+          echo "card_content_url=$card_content_url" >> $GITHUB_ENV
+
+      - name: Get Repository Topics
+        if: ${{ env.card_content_url && env.card_content_url != "null" }}
+        id: topics
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Obtener los topics del repositorio
+          response=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.com/repos/${{ github.repository }}/topics" \
+            -H "Accept: application/vnd.github.mercy-preview+json")
+          
+          # Extraer el topic que empieza con "jira-" o asignar "no definido"
+          jira_project=$(echo "$response" | jq -r '.names[] | select(startswith("jira-"))' | cut -d '-' -f 2 || echo "no definido")
+          echo "jira_project=$jira_project" >> $GITHUB_ENV
+
+      - name: Send Moved Issue Data to Google Sheets
+        if: ${{ env.card_content_url && env.card_content_url != "null" }}
+        env:
+          WEBHOOK_URL: "https://script.google.com/macros/s/AKfycbxhApYr834vi421taQw6mH8eS0Nl8tWmVxOI_KB6da7L_gN80yNlo0BorscDAOnT1y0/exec"
+        run: |
+          # Extraer los datos del issue del Project Card
+          issue_title=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$card_content_url" | jq -r '.title')
+          issue_url=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$card_content_url" | jq -r '.html_url')
+          repo_name="${{ github.repository }}"
+          jira_project="${{ env.jira_project }}"
+          column_name="cualquier texto"
+
+          # Crear el objeto JSON a enviar
+          json_payload=$(jq -n \
+            --arg repoName "$repo_name" \
+            --arg title "$issue_title" \
+            --arg url "$issue_url" \
+            --arg jiraProject "$jira_project" \
+            --arg columnName "$column_name" \
+            '{repoName: $repoName, issue: {title: $title, url: $url, jiraProject: $jiraProject, columnName: $columnName}}'
+          )
+
+          # Enviar el objeto JSON a la URL usando curl
+          curl -X POST -H "Content-Type: application/json" -d "$json_payload" "$WEBHOOK_URL"
