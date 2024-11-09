@@ -34,7 +34,7 @@ jobs:
           
           # Obtener el código de proyecto de Jira del topic
           jira_project="${{ env.jira_project }}"
-          column_name="${{ github.event.label.name }}"  # Obtener el nombre del label que cambió
+          column_name="Status: ${{ github.event.label.name }}"  # Obtener el nombre del label que cambió
 
           # Crear el objeto JSON a enviar
           json_payload=$(jq -n \

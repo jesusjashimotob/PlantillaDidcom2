@@ -34,7 +34,7 @@ jobs:
           
           # Obtener el código de proyecto de Jira y el nombre del recurso asignado
           jira_project="${{ env.jira_project }}"
-          assignee="${{ github.event.assignee.login }}"  # Nombre del recurso asignado
+          assignee="assigned to: ${{ github.event.assignee.login }}"  # Nombre del recurso asignado
 
           # Crear el objeto JSON a enviar
           json_payload=$(jq -n \
