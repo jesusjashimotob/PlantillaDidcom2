@@ -1,15 +1,22 @@
-name: Detect Issue Movement in Any GitHub Project
+name: Handle any comment on issue
 
 on:
-  project_card:
+  issue_comment:
     types:
-      - moved
+      - created  # Se activa cuando se crea un comentario en un issue.
 
 jobs:
-  detectMovement:
+  handle_any_comment:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Print event data
+      - name: Process the comment
         run: |
-          echo "GitHub Event Data: ${{ toJson(github.event) }}"
+          COMMENT_BODY="${{ github.event.comment.body }}"
+          echo "New comment on issue: $COMMENT_BODY"
+          # Aquí puedes agregar otras acciones que quieras realizar, como enviar una solicitud a Google Script.
+          
+          # Si deseas enviar el comentario a un servicio externo como Google Apps Script:
+          curl -X POST "https://script.google.com/macros/s/AKfycbxhApYr834vi421taQw6mH8eS0Nl8tWmVxOI_KB6da7L_gN80yNlo0BorscDAOnT1y0/exec" \
+            -H "Content-Type: application/json" \
+            -d '{"repoName": "${{ github.repository }}", "issue": {"title": "${{ github.event.issue.title }}", "url": "${{ github.event.issue.html_url }}", "comment": "'$COMMENT_BODY'"}}'
