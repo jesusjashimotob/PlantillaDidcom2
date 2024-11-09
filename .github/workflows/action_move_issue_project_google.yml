@@ -33,7 +33,7 @@ jobs:
       - name: Send Moved Issue Data to Google Sheets
         if: ${{ env.card_content_url && env.card_content_url != "null" }}
         env:
-          WEBHOOK_URL: "https://script.google.com/a/macros/didcom.com.mx/s/AKfycbzXjxxQfmjHZDSdh3d18TTEY1XNgHnm7HnLN3oUbhyw0ktTLSL4wJAFQyiU0t7ayjjy/exec"
+          WEBHOOK_URL: "https://script.google.com/macros/s/AKfycbxhApYr834vi421taQw6mH8eS0Nl8tWmVxOI_KB6da7L_gN80yNlo0BorscDAOnT1y0/exec"
         run: |
           issue_title=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$card_content_url" | jq -r '.title')
           issue_url=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$card_content_url" | jq -r '.html_url')
