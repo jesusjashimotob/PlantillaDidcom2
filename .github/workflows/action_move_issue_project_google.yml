@@ -1,17 +1,46 @@
-name: Detectar Labeled en Issues
+name: Detectar cambio de label en Issues y enviar a Google Script
 
 on:
   issues:
-    types: [labeled]  # Este evento se dispara cuando un label es asignado a un issue
+    types: [labeled]  # Este evento se dispara cuando un label es agregado o eliminado
 
 jobs:
-  show_label_info:
+  send_to_google_script:
     runs-on: ubuntu-latest  # El runner en el que se ejecutará el job
-    
+
     steps:
-    - name: Mostrar información del label
+    - name: Enviar información a Google Apps Script
       run: |
-        echo "Se ha etiquetado un issue"
-        echo "Número de Issue: ${{ github.event.issue.number }}"
-        echo "Título del Issue: ${{ github.event.issue.title }}"
-        echo "Etiqueta aplicada: ${{ github.event.label.name }}"
+        # Definir variables para la URL y el repositorio
+        GOOGLE_SCRIPT_URL="https://script.google.com/macros/s/AKfycbxhApYr834vi421taQw6mH8eS0Nl8tWmVxOI_KB6da7L_gN80yNlo0BorscDAOnT1y0/exec"
+        REPO_NAME="${{ github.repository }}"
+        ISSUE_TITLE="${{ github.event.issue.title }}"
+        ISSUE_URL="${{ github.event.issue.html_url }}"
+        
+        # Buscar el proyecto JIRA a partir del topic en el repositorio
+        JIRA_PROJECT="no definido"
+        if [[ "$REPO_NAME" == *"jira-"* ]]; then
+          JIRA_PROJECT="${REPO_NAME##*-}"  # Extrae el código de jira-xxx
+        fi
+
+        # Obtener el nombre del label (la columna del tablero de Projects)
+        LABEL="${{ github.event.label.name }}"
+
+        # Crear el objeto JSON
+        JSON_PAYLOAD=$(cat <<EOF
+        {
+          "repoName": "$REPO_NAME", 
+          "issue": {
+            "title": "$ISSUE_TITLE", 
+            "url": "$ISSUE_URL", 
+            "jiraProject": "$JIRA_PROJECT",
+            "columnName": "$LABEL"
+          }
+        }
+        EOF
+        )
+
+        # Enviar la solicitud POST a Google Apps Script
+        curl -X POST "$GOOGLE_SCRIPT_URL" \
+          -H "Content-Type: application/json" \
+          -d "$JSON_PAYLOAD"
