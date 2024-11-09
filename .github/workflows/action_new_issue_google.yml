@@ -9,6 +9,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Get Repository Metadata
+        id: repo
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const topics = await github.repos.getAllTopics({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+            return topics.data.names.find(topic => topic.startsWith('jira-')) || 'jira-no-definido';
+
       - name: Send Issue Data to Google Sheets
         env:
           WEBHOOK_URL: "https://script.google.com/macros/s/AKfycbzrOWdQe93O-0-ZVkLzVuqJi7a0ZByGIseTl_K3gOkibawugVFJkhyPlOcc6nBatsGE/exec"
@@ -18,9 +29,10 @@ jobs:
           issue_title="${{ github.event.issue.title }}"
           issue_user="${{ github.event.issue.user.login }}"
           issue_url="${{ github.event.issue.html_url }}"
-
-          # Buscar el patrón jira-xxx en el título del issue
-          jira_project=$(echo "$issue_title" | grep -oE 'jira-([a-zA-Z0-9]+)' | cut -d '-' -f 2 || echo "no definido")
+          
+          # Obtener el código de proyecto de Jira del topic
+          jira_project="${{ steps.repo.outputs.result }}"
+          jira_project=${jira_project#jira-} # Quitar el prefijo "jira-" si existe
 
           # Crear el objeto JSON a enviar
           json_payload=$(jq -n \
