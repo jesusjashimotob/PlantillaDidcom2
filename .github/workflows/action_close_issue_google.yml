@@ -1,0 +1,50 @@
+name: Send Closed Issue to Google Sheets
+
+on:
+  issues:
+    types: [closed]
+
+jobs:
+  sendIssueData:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get Repository Topics
+        id: topics
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Obtener los topics del repositorio
+          response=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.com/repos/${{ github.repository }}/topics" \
+            -H "Accept: application/vnd.github.mercy-preview+json")
+          
+          # Extraer el topic que empieza con "jira-" o asignar "no definido"
+          jira_project=$(echo "$response" | jq -r '.names[] | select(startswith("jira-"))' | cut -d '-' -f 2 || echo "no definido")
+          echo "jira_project=$jira_project" >> $GITHUB_ENV
+
+      - name: Send Closed Issue Data to Google Sheets
+        env:
+          WEBHOOK_URL: "https://script.google.com/macros/s/AKfycbzHov2W9h6-j89P_sZ1gPafBIasDSZ1amc-F_LQSNmfVFkWHmA2IHBNPNR5AfNM5G09/exec"
+        run: |
+          # Extraer el nombre del repositorio y los datos del issue
+          repo_name="${{ github.repository }}"
+          issue_title="${{ github.event.issue.title }}"
+          issue_url="${{ github.event.issue.html_url }}"
+          
+          # Obtener el código de proyecto de Jira del topic
+          jira_project="${{ env.jira_project }}"
+          column_name="cualquier texto"
+
+          # Crear el objeto JSON a enviar
+          json_payload=$(jq -n \
+            --arg repoName "$repo_name" \
+            --arg title "$issue_title" \
+            --arg url "$issue_url" \
+            --arg jiraProject "$jira_project" \
+            --arg columnName "$column_name" \
+            '{repoName: $repoName, issue: {title: $title, url: $url, jiraProject: $jiraProject, columnName: $columnName}}'
+          )
+
+          # Enviar el objeto JSON a la URL usando curl
+          curl -X POST -H "Content-Type: application/json" -d "$json_payload" "$WEBHOOK_URL"
