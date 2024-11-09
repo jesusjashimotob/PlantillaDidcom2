@@ -1,93 +1,94 @@
-name: Integrate GitHub Issues with Jira
-
-on:
-  issues:
-    types: [opened]  # Se activa cuando se crea un nuevo issue
-  pull_request:
-    types: [opened]  # Se activa cuando se crea un nuevo pull request
-
-jobs:
-  create-jira-issue:
-    runs-on: ubuntu-latest
-
-    steps:
-      # Paso 1: Obtener el project key de los topics del repositorio
-      - name: Get Project Key from Topics
-        id: get-project-key
-        run: |
-          # Obtener los topics del repositorio
-          topics=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/topics")
-
-          # Buscar el topic que comience con 'jira-' y convertirlo a mayúsculas
-          project_key=$(echo "$topics" | jq -r '.names[] | select(startswith("jira-")) | ascii_upcase | gsub("JIRA-"; "")')
-
-          # Si se encuentra un project key, almacenarlo en la variable de entorno
-          if [ -n "$project_key" ]; then
-            echo "project_key=$project_key" >> $GITHUB_ENV
-          else
-            echo "project_key=NO_PROJECT_KEY" >> $GITHUB_ENV  # Manejo de error si no se encuentra
-          fi
-
-      # Paso 2: Crear un issue en Jira
-      - name: Create Issue in Jira
-        env:
-          JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
-          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
-          JIRA_URL: ${{ secrets.JIRA_URL }}
-        id: create-jira-issue
-        run: |
-          # Imprimir la URL de la API de Jira
-          echo "Jira API URL: $JIRA_URL/rest/api/2/issue/"
-
-          # Define el payload
-          payload=$(jq -n \
-            --arg project_key "${{ env.project_key }}" \
-            --arg summary "${{ github.event.issue.title || github.event.pull_request.title }}" \
-            --arg issue_type "Tarea" \
-            '{
-              fields: {
-                project: { key: $project_key },
-                summary: $summary,
-                issuetype: { name: $issue_type }
-              }
-            }')
-
-          # Imprimir el payload para verificación
-          echo "Payload: $payload"
-
-          # Enviar la solicitud POST a Jira
-          response=$(curl -X POST -H "Content-Type: application/json" \
-            -u "$JIRA_USERNAME:$JIRA_API_TOKEN" \
-            --data "$payload" \
-            "$JIRA_URL/rest/api/2/issue/")
-          
-          # Obtener el key del issue creado en Jira
-          jira_issue_key=$(echo "$response" | jq -r '.key')
-
-          # Imprimir el key del issue de Jira
-          echo "Jira Issue Key: $jira_issue_key"
-
-      # Paso 3: Crear un label en GitHub con el key del issue de Jira
-      - name: Create Label in GitHub
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Crear un label con el key del issue de Jira
-          label_name="${jira_issue_key}"
-          label_color="f2951d"  # Cambia este color según sea necesario
-
-          # Definir el payload para crear el label
-          label_payload=$(jq -n \
-            --arg name "$label_name" \
-            --arg color "$label_color" \
-            '{
-              name: $name,
-              color: $color
-            }')
-
-          # Crear el label en GitHub
-          curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github.v3+json" \
-            --data "$label_payload" \
-            "https://api.github.com/repos/${{ github.repository }}/labels"
+#name: Integrate GitHub Issues with Jira
+#
+#on:
+#  issues:
+#    types: [opened]  # Se activa cuando se crea un nuevo issue
+#  pull_request:
+#    types: [opened]  # Se activa cuando se crea un nuevo pull request
+#
+#jobs:
+#  create-jira-issue:
+#    runs-on: ubuntu-latest
+#
+#    steps:
+#      # Paso 1: Obtener el project key de los topics del repositorio
+#      - name: Get Project Key from Topics
+#        id: get-project-key
+#        run: |
+#          # Obtener los topics del repositorio
+#          topics=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+#            "https://api.github.com/repos/${{ github.repository }}/topics")
+#
+#          # Buscar el topic que comience con 'jira-' y convertirlo a mayúsculas
+#          project_key=$(echo "$topics" | jq -r '.names[] | select(startswith("jira-")) | ascii_upcase | gsub("JIRA-"; "")')
+#
+#          # Si se encuentra un project key, almacenarlo en la variable de entorno
+#          if [ -n "$project_key" ]; then
+#            echo "project_key=$project_key" >> $GITHUB_ENV
+#          else
+#            echo "project_key=NO_PROJECT_KEY" >> $GITHUB_ENV  # Manejo de error si no se encuentra
+#          fi
+#
+#      # Paso 2: Crear un issue en Jira
+#      - name: Create Issue in Jira
+#        env:
+#          JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
+#          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+#          JIRA_URL: ${{ secrets.JIRA_URL }}
+#        id: create-jira-issue
+#        run: |
+#          # Imprimir la URL de la API de Jira
+#          echo "Jira API URL: $JIRA_URL/rest/api/2/issue/"
+#
+#          # Define el payload
+#          payload=$(jq -n \
+#            --arg project_key "${{ env.project_key }}" \
+#            --arg summary "${{ github.event.issue.title || github.event.pull_request.title }}" \
+#            --arg issue_type "Tarea" \
+#            '{
+#              fields: {
+#                project: { key: $project_key },
+#                summary: $summary,
+#                issuetype: { name: $issue_type }
+#              }
+#            }')
+#
+#          # Imprimir el payload para verificación
+#          echo "Payload: $payload"
+#
+#          # Enviar la solicitud POST a Jira
+#          response=$(curl -X POST -H "Content-Type: application/json" \
+#            -u "$JIRA_USERNAME:$JIRA_API_TOKEN" \
+#            --data "$payload" \
+#            "$JIRA_URL/rest/api/2/issue/")
+#          
+#          # Obtener el key del issue creado en Jira
+#          jira_issue_key=$(echo "$response" | jq -r '.key')
+#
+#          # Imprimir el key del issue de Jira
+#          echo "Jira Issue Key: $jira_issue_key"
+#
+#      # Paso 3: Crear un label en GitHub con el key del issue de Jira
+#      - name: Create Label in GitHub
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#        run: |
+#          # Crear un label con el key del issue de Jira
+#          label_name="${jira_issue_key}"
+#          label_color="f2951d"  # Cambia este color según sea necesario
+#
+#          # Definir el payload para crear el label
+#          label_payload=$(jq -n \
+#            --arg name "$label_name" \
+#            --arg color "$label_color" \
+#            '{
+#              name: $name,
+#              color: $color
+#            }')
+#
+#          # Crear el label en GitHub
+#          curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
+#            -H "Accept: application/vnd.github.v3+json" \
+#            --data "$label_payload" \
+#            "https://api.github.com/repos/${{ github.repository }}/labels"
+#
