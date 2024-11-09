@@ -2,56 +2,281 @@ name: Send Moved Issue to Google Sheets
 
 on:
   project_card:
-    types: [moved]
+    types: [moved]  # Esto asegura que se ejecute cuando la tarjeta de un issue se mueva entre columnas
 
 jobs:
   sendIssueData:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check if Project Card is an Issue
-        id: check_issue
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Get Issue Information
+        id: issue_info
         run: |
-          card_content_url=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-            "${{ github.event.project_card.content_url }}" | jq -r '.url')
-          echo "card_content_url=$card_content_url" >> $GITHUB_ENV
+          issue_url="${{ github.event.project_card.content_url }}"
+          echo "Issue URL: $issue_url"
+          # Obtener información del issue desde el contenido de la tarjeta
+          issue_data=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" "$issue_url")
+          issue_title=$(echo "$issue_data" | jq -r '.title')
+          issue_url=$(echo "$issue_data" | jq -r '.html_url')
+          echo "Issue title: $issue_title"
+          echo "Issue URL: $issue_url"
+          echo "title=$issue_title" >> $GITHUB_ENV
+          echo "url=$issue_url" >> $GITHUB_ENV
 
       - name: Get Repository Topics
-        if: ${{ env.card_content_url && env.card_content_url != "null" }}
-        id: topics
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          response=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+          response=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/${{ github.repository }}/topics" \
             -H "Accept: application/vnd.github.mercy-preview+json")
           jira_project=$(echo "$response" | jq -r '.names[] | select(startswith("jira-"))' | cut -d '-' -f 2 || echo "no definido")
           echo "jira_project=$jira_project" >> $GITHUB_ENV
 
-      - name: Send Moved Issue Data to Google Sheets
-        if: ${{ env.card_content_url && env.card_content_url != "null" }}
-        env:
-          WEBHOOK_URL: "https://script.google.com/macros/s/AKfycbxhApYr834vi421taQw6mH8eS0Nl8tWmVxOI_KB6da7L_gN80yNlo0BorscDAOnT1y0/exec"
+      - name: Send Data to Google Sheets
         run: |
-          issue_title=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$card_content_url" | jq -r '.title')
-          issue_url=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$card_content_url" | jq -r '.html_url')
-          repo_name="${{ github.repository }}"
-          jira_project="${{ env.jira_project }}"
-          column_name="cualquier texto"
-
           json_payload=$(jq -n \
-            --arg repoName "$repo_name" \
-            --arg title "$issue_title" \
-            --arg url "$issue_url" \
-            --arg jiraProject "$jira_project" \
-            --arg columnName "$column_name" \
-            '{repoName: $repoName, issue: {title: $title, url: $url, jiraProject: $jiraProject, columnName: $columnName}}'
-          )
+            --arg repoName "${{ github.repository }}" \
+            --arg title "${{ env.title }}" \
+            --arg url "${{ env.url }}" \
+            --arg jiraProject "${{ env.jira_project }}" \
+            --arg columnName "cualquier texto" \
+            '{repoName: $repoName, issue: {title: $title, url: $url, jiraProject: $jiraProject, columnName: $columnName}}')
 
-          echo "JSON Payload: $json_payload"
+          echo "Sending payload: $json_payload"
 
-          # Enviar el objeto JSON a la URL usando curl y capturar la respuesta
-          response=$(curl -s -X POST -H "Content-Type: application/json" -d "$json_payload" "$WEBHOOK_URL")
+          response=$(curl -s -X POST -H "Content-Type: application/json" -d "$json_payload" "https://script.google.com/macros/s/AKfycbxhApYr834vi421taQw6mH8eS0Nl8tWmVxOI_KB6da7L_gN80yNlo0BorscDAOnT1y0/exec")
+          echo "Response from Google Script: $response"
+name: Send Moved Issue to Google Sheets
+
+on:
+  project_card:
+    types: [moved]  # Esto asegura que se ejecute cuando la tarjeta de un issue se mueva entre columnas
+
+jobs:
+  sendIssueData:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get Issue Information
+        id: issue_info
+        run: |
+          issue_url="${{ github.event.project_card.content_url }}"
+          echo "Issue URL: $issue_url"
+          # Obtener información del issue desde el contenido de la tarjeta
+          issue_data=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" "$issue_url")
+          issue_title=$(echo "$issue_data" | jq -r '.title')
+          issue_url=$(echo "$issue_data" | jq -r '.html_url')
+          echo "Issue title: $issue_title"
+          echo "Issue URL: $issue_url"
+          echo "title=$issue_title" >> $GITHUB_ENV
+          echo "url=$issue_url" >> $GITHUB_ENV
+
+      - name: Get Repository Topics
+        run: |
+          response=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/topics" \
+            -H "Accept: application/vnd.github.mercy-preview+json")
+          jira_project=$(echo "$response" | jq -r '.names[] | select(startswith("jira-"))' | cut -d '-' -f 2 || echo "no definido")
+          echo "jira_project=$jira_project" >> $GITHUB_ENV
+
+      - name: Send Data to Google Sheets
+        run: |
+          json_payload=$(jq -n \
+            --arg repoName "${{ github.repository }}" \
+            --arg title "${{ env.title }}" \
+            --arg url "${{ env.url }}" \
+            --arg jiraProject "${{ env.jira_project }}" \
+            --arg columnName "cualquier texto" \
+            '{repoName: $repoName, issue: {title: $title, url: $url, jiraProject: $jiraProject, columnName: $columnName}}')
+
+          echo "Sending payload: $json_payload"
+
+          response=$(curl -s -X POST -H "Content-Type: application/json" -d "$json_payload" "https://script.google.com/macros/s/AKfycbxhApYr834vi421taQw6mH8eS0Nl8tWmVxOI_KB6da7L_gN80yNlo0BorscDAOnT1y0/exec")
+          echo "Response from Google Script: $response"
+name: Send Moved Issue to Google Sheets
+
+on:
+  project_card:
+    types: [moved]  # Esto asegura que se ejecute cuando la tarjeta de un issue se mueva entre columnas
+
+jobs:
+  sendIssueData:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get Issue Information
+        id: issue_info
+        run: |
+          issue_url="${{ github.event.project_card.content_url }}"
+          echo "Issue URL: $issue_url"
+          # Obtener información del issue desde el contenido de la tarjeta
+          issue_data=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" "$issue_url")
+          issue_title=$(echo "$issue_data" | jq -r '.title')
+          issue_url=$(echo "$issue_data" | jq -r '.html_url')
+          echo "Issue title: $issue_title"
+          echo "Issue URL: $issue_url"
+          echo "title=$issue_title" >> $GITHUB_ENV
+          echo "url=$issue_url" >> $GITHUB_ENV
+
+      - name: Get Repository Topics
+        run: |
+          response=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/topics" \
+            -H "Accept: application/vnd.github.mercy-preview+json")
+          jira_project=$(echo "$response" | jq -r '.names[] | select(startswith("jira-"))' | cut -d '-' -f 2 || echo "no definido")
+          echo "jira_project=$jira_project" >> $GITHUB_ENV
+
+      - name: Send Data to Google Sheets
+        run: |
+          json_payload=$(jq -n \
+            --arg repoName "${{ github.repository }}" \
+            --arg title "${{ env.title }}" \
+            --arg url "${{ env.url }}" \
+            --arg jiraProject "${{ env.jira_project }}" \
+            --arg columnName "cualquier texto" \
+            '{repoName: $repoName, issue: {title: $title, url: $url, jiraProject: $jiraProject, columnName: $columnName}}')
+
+          echo "Sending payload: $json_payload"
+
+          response=$(curl -s -X POST -H "Content-Type: application/json" -d "$json_payload" "https://script.google.com/macros/s/AKfycbxhApYr834vi421taQw6mH8eS0Nl8tWmVxOI_KB6da7L_gN80yNlo0BorscDAOnT1y0/exec")
+          echo "Response from Google Script: $response"
+name: Send Moved Issue to Google Sheets
+
+on:
+  project_card:
+    types: [moved]  # Esto asegura que se ejecute cuando la tarjeta de un issue se mueva entre columnas
+
+jobs:
+  sendIssueData:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get Issue Information
+        id: issue_info
+        run: |
+          issue_url="${{ github.event.project_card.content_url }}"
+          echo "Issue URL: $issue_url"
+          # Obtener información del issue desde el contenido de la tarjeta
+          issue_data=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" "$issue_url")
+          issue_title=$(echo "$issue_data" | jq -r '.title')
+          issue_url=$(echo "$issue_data" | jq -r '.html_url')
+          echo "Issue title: $issue_title"
+          echo "Issue URL: $issue_url"
+          echo "title=$issue_title" >> $GITHUB_ENV
+          echo "url=$issue_url" >> $GITHUB_ENV
+
+      - name: Get Repository Topics
+        run: |
+          response=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/topics" \
+            -H "Accept: application/vnd.github.mercy-preview+json")
+          jira_project=$(echo "$response" | jq -r '.names[] | select(startswith("jira-"))' | cut -d '-' -f 2 || echo "no definido")
+          echo "jira_project=$jira_project" >> $GITHUB_ENV
+
+      - name: Send Data to Google Sheets
+        run: |
+          json_payload=$(jq -n \
+            --arg repoName "${{ github.repository }}" \
+            --arg title "${{ env.title }}" \
+            --arg url "${{ env.url }}" \
+            --arg jiraProject "${{ env.jira_project }}" \
+            --arg columnName "cualquier texto" \
+            '{repoName: $repoName, issue: {title: $title, url: $url, jiraProject: $jiraProject, columnName: $columnName}}')
+
+          echo "Sending payload: $json_payload"
+
+          response=$(curl -s -X POST -H "Content-Type: application/json" -d "$json_payload" "https://script.google.com/macros/s/AKfycbxhApYr834vi421taQw6mH8eS0Nl8tWmVxOI_KB6da7L_gN80yNlo0BorscDAOnT1y0/exec")
+          echo "Response from Google Script: $response"
+name: Send Moved Issue to Google Sheets
+
+on:
+  project_card:
+    types: [moved]  # Esto asegura que se ejecute cuando la tarjeta de un issue se mueva entre columnas
+
+jobs:
+  sendIssueData:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get Issue Information
+        id: issue_info
+        run: |
+          issue_url="${{ github.event.project_card.content_url }}"
+          echo "Issue URL: $issue_url"
+          # Obtener información del issue desde el contenido de la tarjeta
+          issue_data=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" "$issue_url")
+          issue_title=$(echo "$issue_data" | jq -r '.title')
+          issue_url=$(echo "$issue_data" | jq -r '.html_url')
+          echo "Issue title: $issue_title"
+          echo "Issue URL: $issue_url"
+          echo "title=$issue_title" >> $GITHUB_ENV
+          echo "url=$issue_url" >> $GITHUB_ENV
+
+      - name: Get Repository Topics
+        run: |
+          response=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/topics" \
+            -H "Accept: application/vnd.github.mercy-preview+json")
+          jira_project=$(echo "$response" | jq -r '.names[] | select(startswith("jira-"))' | cut -d '-' -f 2 || echo "no definido")
+          echo "jira_project=$jira_project" >> $GITHUB_ENV
+
+      - name: Send Data to Google Sheets
+        run: |
+          json_payload=$(jq -n \
+            --arg repoName "${{ github.repository }}" \
+            --arg title "${{ env.title }}" \
+            --arg url "${{ env.url }}" \
+            --arg jiraProject "${{ env.jira_project }}" \
+            --arg columnName "cualquier texto" \
+            '{repoName: $repoName, issue: {title: $title, url: $url, jiraProject: $jiraProject, columnName: $columnName}}')
+
+          echo "Sending payload: $json_payload"
+
+          response=$(curl -s -X POST -H "Content-Type: application/json" -d "$json_payload" "https://script.google.com/macros/s/AKfycbxhApYr834vi421taQw6mH8eS0Nl8tWmVxOI_KB6da7L_gN80yNlo0BorscDAOnT1y0/exec")
+          echo "Response from Google Script: $response"
+name: Send Moved Issue to Google Sheets
+
+on:
+  project_card:
+    types: [moved]  # Esto asegura que se ejecute cuando la tarjeta de un issue se mueva entre columnas
+
+jobs:
+  sendIssueData:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get Issue Information
+        id: issue_info
+        run: |
+          issue_url="${{ github.event.project_card.content_url }}"
+          echo "Issue URL: $issue_url"
+          # Obtener información del issue desde el contenido de la tarjeta
+          issue_data=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" "$issue_url")
+          issue_title=$(echo "$issue_data" | jq -r '.title')
+          issue_url=$(echo "$issue_data" | jq -r '.html_url')
+          echo "Issue title: $issue_title"
+          echo "Issue URL: $issue_url"
+          echo "title=$issue_title" >> $GITHUB_ENV
+          echo "url=$issue_url" >> $GITHUB_ENV
+
+      - name: Get Repository Topics
+        run: |
+          response=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/topics" \
+            -H "Accept: application/vnd.github.mercy-preview+json")
+          jira_project=$(echo "$response" | jq -r '.names[] | select(startswith("jira-"))' | cut -d '-' -f 2 || echo "no definido")
+          echo "jira_project=$jira_project" >> $GITHUB_ENV
+
+      - name: Send Data to Google Sheets
+        run: |
+          json_payload=$(jq -n \
+            --arg repoName "${{ github.repository }}" \
+            --arg title "${{ env.title }}" \
+            --arg url "${{ env.url }}" \
+            --arg jiraProject "${{ env.jira_project }}" \
+            --arg columnName "cualquier texto" \
+            '{repoName: $repoName, issue: {title: $title, url: $url, jiraProject: $jiraProject, columnName: $columnName}}')
+
+          echo "Sending payload: $json_payload"
+
+          response=$(curl -s -X POST -H "Content-Type: application/json" -d "$json_payload" "https://script.google.com/macros/s/AKfycbxhApYr834vi421taQw6mH8eS0Nl8tWmVxOI_KB6da7L_gN80yNlo0BorscDAOnT1y0/exec")
           echo "Response from Google Script: $response"
