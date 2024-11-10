@@ -23,7 +23,16 @@ jobs:
           jira_project=$(echo "$response" | jq -r '.names[] | select(startswith("jira-"))' | cut -d '-' -f 2 || echo "no definido")
           echo "jira_project=$jira_project" >> $GITHUB_ENV
 
+      - name: Check if Issue is Open
+        id: check_issue_state
+        run: |
+          if [[ "${{ github.event.issue.state }}" != "open" ]]; then
+            echo "Issue is not open. Exiting."
+            exit 0
+          fi
+
       - name: Send Issue Data to Google Sheets
+        if: ${{ steps.check_issue_state.outcome == 'success' }}
         env:
           WEBHOOK_URL: "https://script.google.com/macros/s/AKfycbxhApYr834vi421taQw6mH8eS0Nl8tWmVxOI_KB6da7L_gN80yNlo0BorscDAOnT1y0/exec"
         run: |
