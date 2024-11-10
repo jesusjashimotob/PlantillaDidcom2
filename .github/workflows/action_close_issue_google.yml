@@ -58,4 +58,4 @@ jobs:
           curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             https://api.github.com/repos/${{ github.repository }}/issues/$issue_number/labels \
-            -d '{"labels":["closed"]}'
+            -d '{"labels":["DONE"]}'
