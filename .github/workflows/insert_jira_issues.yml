@@ -1,3 +1,25 @@
+name: Integrate GitHub Issues with Jira (Provisional)
+
+on:
+  issues:
+    types: [opened]  # Se activa cuando se crea un nuevo issue
+  pull_request:
+    types: [opened]  # Se activa cuando se crea un nuevo pull request
+
+jobs:
+  create-jira-issue:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Provisional Step - Get Project Key from Topics
+        run: echo "Simulating retrieval of project key from topics."
+
+      - name: Provisional Step - Create Issue in Jira
+        run: echo "Simulating Jira issue creation."
+
+      - name: Provisional Step - Create Label in GitHub
+        run: echo "Simulating GitHub label creation with Jira issue key."
+
 #name: Integrate GitHub Issues with Jira
 #
 #on:

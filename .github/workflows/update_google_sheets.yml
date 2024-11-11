@@ -1,3 +1,20 @@
+name: Add User Story to Google Sheets (Provisional)
+
+# Evento que activará el workflow, usando los mismos triggers
+on:
+  issues:
+    types: [opened]  # Se activará cuando se cree un issue nuevo
+
+jobs:
+  update-google-sheets:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Provisional Step - Get Jira Code from Topics
+        run: echo "Simulating retrieval of Jira code from topics."
+
+      - name: Provisional Step - Send Data to Google Sheets
+        run: echo "Simulating sending data to Google Sheets."
 #name: Add User Story to Google Sheets
 #
 ## Definir el evento que activará el workflow
