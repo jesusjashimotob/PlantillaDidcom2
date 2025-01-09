@@ -13,7 +13,7 @@ jobs:
     steps:
       - name: Crear Issue de Sincronización
         run: |
-          curl -X POST -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+          curl -X POST -H "Authorization: Bearer ${{ secrets.ISSUE_TOKEN }}" \
             -H "Accept: application/vnd.github+json" \
             -d '{
               "title": "Sincronización GitHub-Jira",
