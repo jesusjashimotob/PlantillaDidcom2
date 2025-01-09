@@ -1,3 +1,6 @@
+# Crea una historia para sincronizar el repositorio con Jira
+# 09/Enero/2024
+# Jesus Jashimoto
 name: Create Sync Issue
 
 on:
