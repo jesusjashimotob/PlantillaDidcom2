@@ -129,4 +129,15 @@
               exit 1
             fi
             echo "Enlace agregado con éxito a la Tarea en Jira."
+
+        - name: Calcular y Verificar Encabezado de Autorización
+          run: |
+            echo "Verificando cálculo del encabezado de autorización..."
+
+            # Calcular encabezado de autorización
+            authorization_header=$(echo -n "${{ secrets.JIRA_USERNAME }}:${{ secrets.JIRA_API_TOKEN }}" | base64)
+
+            # Verificar el resultado del cálculo
+            echo "Encabezado calculado: Basic $authorization_header"
+
   
