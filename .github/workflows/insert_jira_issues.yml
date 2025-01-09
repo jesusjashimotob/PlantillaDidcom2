@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Verificar configuración de secrets y variables
+      # Verificar configuración de secrets
       - name: Verificar configuración de secrets
         run: |
           if [[ -z "${{ secrets.JIRA_USERNAME }}" || -z "${{ secrets.JIRA_API_TOKEN }}" || -z "${{ secrets.JIRA_URL }}" ]]; then
@@ -18,77 +18,88 @@ jobs:
             exit 1
           fi
           echo "Secrets configurados correctamente."
-          echo "JIRA_USERNAME: ${#secrets.JIRA_USERNAME} caracteres (enmascarado)"
-          echo "JIRA_API_TOKEN: ${#secrets.JIRA_API_TOKEN} caracteres (enmascarado)"
-          echo "JIRA_URL: ${{ secrets.JIRA_URL }}"
 
-      # Generar y mostrar todos los parámetros de la petición
-      - name: Generar y mostrar detalles de la petición
+      # Diagnóstico e impresión de la petición
+      - name: Mostrar configuración de la petición a Jira
         run: |
-          echo "Generando diagnóstico de la petición a Jira..."
-
-          # Fecha de vencimiento
+          # Definir fecha de vencimiento un mes a partir de ahora
           due_date=$(date -d "+1 month" "+%Y-%m-%d")
 
-          # Crear el payload
-          task_payload=$(cat <<EOF
-          {
-            "fields": {
-              "project": {
-                "key": "CDP"
-              },
-              "summary": "${{ github.event.issue.title }}",
-              "issuetype": {
-                "name": "Task"
-              },
-              "components": [
-                {
-                  "name": "Firmware"
-                },
-                {
-                  "name": "Sin Asignar"
-                }
-              ],
-              "duedate": "$due_date"
-            }
-          }
-          EOF
+          # Construir el body de la petición
+          request_body=$(cat <<EOF
+{
+  "fields": {
+    "project": {
+      "key": "CDP"
+    },
+    "summary": "Prueba insert jira taks for github issue 5",
+    "issuetype": {
+      "name": "Task"
+    },
+    "components": [
+      {
+        "name": "Firmware"
+      },
+      {
+        "name": "Sin Asignar"
+      }
+    ],
+    "duedate": "$due_date"
+  }
+}
+EOF
           )
 
-          # Construir los headers
-          auth_header=$(echo -n "${{ secrets.JIRA_USERNAME }}:${{ secrets.JIRA_API_TOKEN }}" | base64)
-
-          # Mostrar los detalles de la petición
-          echo "=== Detalles de la petición ==="
-          echo "Tipo de petición: POST"
+          # Mostrar información completa de la petición
+          echo "=== Configuración de la petición ==="
           echo "URL: ${{ secrets.JIRA_URL }}/rest/api/3/issue"
           echo "Headers:"
-          echo "  Authorization: Basic $auth_header (enmascarado)"
+          echo "  Authorization: Basic $(echo -n '${{ secrets.JIRA_USERNAME }}:${{ secrets.JIRA_API_TOKEN }}' | base64)"
           echo "  Content-Type: application/json"
-          echo "Body del JSON:"
-          echo "$task_payload"
+          echo "Body:"
+          echo "$request_body"
+          echo "Tipo de petición: POST"
 
-      # Realizar la petición y mostrar la respuesta
-      - name: Realizar y diagnosticar la petición a Jira
+      # Realizar la petición
+      - name: Realizar petición a Jira
         run: |
-          echo "Realizando petición real a Jira..."
+          due_date=$(date -d "+1 month" "+%Y-%m-%d")
+          request_body=$(cat <<EOF
+{
+  "fields": {
+    "project": {
+      "key": "CDP"
+    },
+    "summary": "Prueba insert jira taks for github issue 5",
+    "issuetype": {
+      "name": "Task"
+    },
+    "components": [
+      {
+        "name": "Firmware"
+      },
+      {
+        "name": "Sin Asignar"
+      }
+    ],
+    "duedate": "$due_date"
+  }
+}
+EOF
+          )
 
-          # Ejecutar la petición
-          jira_response=$(curl -v -s -X POST \
-            -H "Authorization: Basic $(echo -n ${{ secrets.JIRA_USERNAME }}:${{ secrets.JIRA_API_TOKEN }} | base64)" \
+          # Enviar petición
+          jira_response=$(curl -s -X POST \
+            -H "Authorization: Basic $(echo -n "${{ secrets.JIRA_USERNAME }}:${{ secrets.JIRA_API_TOKEN }}" | base64)" \
             -H "Content-Type: application/json" \
-            -d "$task_payload" \
-            ${{ secrets.JIRA_URL }}/rest/api/3/issue 2>&1)
+            -d "$request_body" \
+            "${{ secrets.JIRA_URL }}/rest/api/3/issue")
 
-          # Mostrar la respuesta completa
-          echo "=== Respuesta completa de Jira ==="
-          echo "$jira_response"
-
-          # Extraer la key
+          # Verificar la respuesta
+          echo "Respuesta de Jira: $jira_response"
           jira_key=$(echo "$jira_response" | jq -r '.key')
           if [[ -z "$jira_key" || "$jira_key" == "null" ]]; then
             echo "Error: No se pudo crear la tarea en Jira. Revisa los logs."
             exit 1
           fi
-
-          echo "Historia creada con éxito. Key de Jira: $jira_key"
+          echo "Tarea en Jira creada con éxito. Key: $jira_key"
