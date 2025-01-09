@@ -1,16 +1,15 @@
-# Workflow: Diagnóstico Completo de Petición a Jira
-name: Diagnóstico Completo de Petición a Jira
+name: Insertar tarea en Jira
 
 on:
   issues:
     types: [opened]
 
 jobs:
-  diagnose-jira-request:
+  create-jira-task:
     runs-on: ubuntu-latest
 
     steps:
-      # Verificar configuración de secrets
+      # 1. Verificar configuración de secrets
       - name: Verificar configuración de secrets
         run: |
           if [[ -z "${{ secrets.JIRA_USERNAME }}" || -z "${{ secrets.JIRA_API_TOKEN }}" || -z "${{ secrets.JIRA_URL }}" ]]; then
@@ -19,10 +18,9 @@ jobs:
           fi
           echo "Secrets configurados correctamente."
 
-      # Diagnóstico e impresión de la petición
-      - name: Mostrar configuración de la petición a Jira
+      # 2. Mostrar configuración de la petición
+      - name: Preparar información de la tarea en Jira
         run: |
-          # Definir fecha de vencimiento un mes a partir de ahora
           due_date=$(date -d "+1 month" "+%Y-%m-%d")
 
           # Construir el body de la petición
@@ -32,7 +30,7 @@ jobs:
     "project": {
       "key": "CDP"
     },
-    "summary": "Prueba insert jira taks for github issue 5",
+    "summary": "${{ github.event.issue.title }}",
     "issuetype": {
       "name": "Task"
     },
@@ -51,26 +49,27 @@ EOF
           )
 
           # Mostrar información completa de la petición
-          echo "=== Configuración de la petición ==="
+          echo "=== Información de la petición ==="
           echo "URL: ${{ secrets.JIRA_URL }}/rest/api/3/issue"
           echo "Headers:"
           echo "  Authorization: Basic $(echo -n '${{ secrets.JIRA_USERNAME }}:${{ secrets.JIRA_API_TOKEN }}' | base64)"
           echo "  Content-Type: application/json"
           echo "Body:"
           echo "$request_body"
-          echo "Tipo de petición: POST"
 
-      # Realizar la petición
-      - name: Realizar petición a Jira
+      # 3. Realizar la petición a Jira
+      - name: Insertar tarea en Jira
         run: |
           due_date=$(date -d "+1 month" "+%Y-%m-%d")
+
+          # Construir el body de la petición
           request_body=$(cat <<EOF
 {
   "fields": {
     "project": {
       "key": "CDP"
     },
-    "summary": "Prueba insert jira taks for github issue 5",
+    "summary": "${{ github.event.issue.title }}",
     "issuetype": {
       "name": "Task"
     },
@@ -88,7 +87,7 @@ EOF
 EOF
           )
 
-          # Enviar petición
+          # Enviar la petición
           jira_response=$(curl -s -X POST \
             -H "Authorization: Basic $(echo -n "${{ secrets.JIRA_USERNAME }}:${{ secrets.JIRA_API_TOKEN }}" | base64)" \
             -H "Content-Type: application/json" \
@@ -96,10 +95,13 @@ EOF
             "${{ secrets.JIRA_URL }}/rest/api/3/issue")
 
           # Verificar la respuesta
-          echo "Respuesta de Jira: $jira_response"
+          echo "=== Respuesta de Jira ==="
+          echo "$jira_response"
+
           jira_key=$(echo "$jira_response" | jq -r '.key')
           if [[ -z "$jira_key" || "$jira_key" == "null" ]]; then
             echo "Error: No se pudo crear la tarea en Jira. Revisa los logs."
             exit 1
           fi
           echo "Tarea en Jira creada con éxito. Key: $jira_key"
+          echo "jira_key=$jira_key" >> $GITHUB_ENV
