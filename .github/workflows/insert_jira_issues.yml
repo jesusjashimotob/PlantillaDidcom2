@@ -1,132 +1,94 @@
-# ------------------------------------------------------------
-# Workflow: Sync GitHub Issues with Jira
-# Autor: Ing. Jesús Jashimoto
-# Fecha: 10 de enero de 2025
-# Descripción:
-#   Este workflow sincroniza los issues creados en GitHub con Jira.
-# ------------------------------------------------------------
+# Workflow: Diagnóstico Completo de Petición a Jira
+name: Diagnóstico Completo de Petición a Jira
 
-  name: Sync GitHub Issues with Jira
+on:
+  issues:
+    types: [opened]
 
-  on:
-    issues:
-      types: [opened]
-  
-  env:
-    SYNC_ISSUE_NUMBER: 21 # Número del Issue de Sincronización, puedes modificarlo manualmente
-  
-  jobs:
-    sync-issue:
-      runs-on: ubuntu-latest
-  
-      steps:
-        # 1. Verificar si el Issue Creado NO es el Issue de Sincronización
-        - name: Verificar si es el Issue de Sincronización
-          id: check-sync-issue
-          run: |
-            echo "Verificando si el issue creado es el de sincronización..."
-            if [[ "${{ github.event.issue.title }}" == "Sincronización GitHub-Jira" ]]; then
-              echo "Este es el Issue de Sincronización. Deteniendo workflow."
-              exit 0
-            fi
-            echo "Continuar con la sincronización: No es el Issue de Sincronización."
-  
-        # 2. (Opcional) Obtener dinámicamente el Issue de Sincronización
-        - name: Obtener Issue de Sincronización (opcional)
-          if: ${{ env.SYNC_ISSUE_NUMBER == '' }}
-          id: get-sync-issue
-          run: |
-            echo "Obteniendo el Issue de Sincronización dinámicamente..."
-            issue=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_PAT }}" \
-              -H "Accept: application/vnd.github+json" \
-              https://api.github.com/repos/${{ github.repository }}/issues \
-              | jq -r '.[] | select(.title == "Sincronización GitHub-Jira")')
-            echo "Número de Issue de Sincronización obtenido: $(echo "$issue" | jq -r '.number')"
-            echo "Body del Issue de Sincronización obtenido: $(echo "$issue" | jq -r '.body')"
-            echo "issue_number=$(echo "$issue" | jq -r '.number')" >> $GITHUB_ENV
-            echo "issue_body=$(echo "$issue" | jq -r '.body')" >> $GITHUB_ENV
-  
-        # 3. Crear Tarea en Jira
-        - name: Crear Tarea en Jira
-          id: create-jira-task
-          run: |
-            echo "Creando tarea en Jira..."
-            due_date=$(date -d "+1 month" "+%Y-%m-%d")
-            jira_response=$(curl -s -X POST \
-              -H "Authorization: Basic $(echo -n ${{ secrets.JIRA_USERNAME }}:${{ secrets.JIRA_API_TOKEN }} | base64)" \
-              -H "Content-Type: application/json" \
-              -d '{
-                "fields": {
-                  "project": {
-                    "key": "CDP"
-                  },
-                  "summary": "${{ github.event.issue.title }}",
-                  "issuetype": {
-                    "name": "Task"
-                  },
-                  "components": [
-                    {
-                      "name": "Firmware"
-                    },
-                    {
-                      "name": "Sin Asignar"
-                    }
-                  ],
-                  "duedate": "'"$due_date"'"
+jobs:
+  diagnose-jira-request:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Verificar configuración de secrets y variables
+      - name: Verificar configuración de secrets
+        run: |
+          if [[ -z "${{ secrets.JIRA_USERNAME }}" || -z "${{ secrets.JIRA_API_TOKEN }}" || -z "${{ secrets.JIRA_URL }}" ]]; then
+            echo "Error: Faltan configuraciones en los secrets (JIRA_USERNAME, JIRA_API_TOKEN, JIRA_URL)."
+            exit 1
+          fi
+          echo "Secrets configurados correctamente."
+          echo "JIRA_USERNAME: ${#secrets.JIRA_USERNAME} caracteres (enmascarado)"
+          echo "JIRA_API_TOKEN: ${#secrets.JIRA_API_TOKEN} caracteres (enmascarado)"
+          echo "JIRA_URL: ${{ secrets.JIRA_URL }}"
+
+      # Generar y mostrar todos los parámetros de la petición
+      - name: Generar y mostrar detalles de la petición
+        run: |
+          echo "Generando diagnóstico de la petición a Jira..."
+
+          # Fecha de vencimiento
+          due_date=$(date -d "+1 month" "+%Y-%m-%d")
+
+          # Crear el payload
+          task_payload=$(cat <<EOF
+          {
+            "fields": {
+              "project": {
+                "key": "CDP"
+              },
+              "summary": "${{ github.event.issue.title }}",
+              "issuetype": {
+                "name": "Task"
+              },
+              "components": [
+                {
+                  "name": "Firmware"
+                },
+                {
+                  "name": "Sin Asignar"
                 }
-              }' \
-              ${{ secrets.JIRA_URL }}/rest/api/3/issue)
-            echo "Respuesta de Jira: $jira_response"
-            jira_key=$(echo "$jira_response" | jq -r '.key')
-            if [[ -z "$jira_key" || "$jira_key" == "null" ]]; then
-              echo "Error: No se pudo crear la tarea en Jira. Revisa los logs."
-              exit 1
-            fi
-            echo "Tarea en Jira creada con éxito. Key: $jira_key"
-            echo "jira_key=$jira_key" >> $GITHUB_ENV
-  
-        # 4. Actualizar el JSON del Issue de Sincronización
-        - name: Obtener y Actualizar Issue de Sincronización
-          run: |
-            echo "Obteniendo y actualizando el Issue de Sincronización..."
-            issue_number=${{ env.SYNC_ISSUE_NUMBER }}
-            if [[ -z "$issue_number" ]]; then
-              echo "No se especificó el número del Issue de Sincronización. Usando el obtenido dinámicamente."
-              issue_number=${{ env.issue_number }}
-            fi
-            echo "Número del Issue de Sincronización: $issue_number"
-            issue_body=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_PAT }}" \
-              -H "Accept: application/vnd.github+json" \
-              https://api.github.com/repos/${{ github.repository }}/issues/$issue_number | jq -r '.body')
-            echo "Body actual del Issue de Sincronización: $issue_body"
-  
-            updated_body=$(echo "$issue_body" | jq --arg gh_issue "${{ github.event.issue.number }}" --arg jira_task "${{ env.jira_key }}" --arg title "${{ github.event.issue.title }}" '.sync.jira.issues += [{"github_issue": $gh_issue, "jira_task": $jira_task, "github_title": $title}]')
-            echo "Body actualizado del Issue de Sincronización: $updated_body"
-  
-            curl -X PATCH -H "Authorization: Bearer ${{ secrets.GITHUB_PAT }}" \
-              -H "Accept: application/vnd.github+json" \
-              -d "{\"body\": $updated_body}" \
-              https://api.github.com/repos/${{ github.repository }}/issues/$issue_number
-            echo "Issue de Sincronización actualizado con éxito."
-  
-        # 5. Agregar el enlace del Issue en GitHub a la Tarea en Jira
-        - name: Enviar enlace del Issue de GitHub a Jira
-          run: |
-            echo "Agregando enlace del Issue en GitHub a la Tarea en Jira..."
-            response=$(curl -X POST \
-              -H "Authorization: Basic $(echo -n ${{ secrets.JIRA_USERNAME }}:${{ secrets.JIRA_API_TOKEN }} | base64)" \
-              -H "Content-Type: application/json" \
-              -d '{
-                "object": {
-                  "url": "${{ github.event.issue.html_url }}",
-                  "title": "${{ github.event.issue.title }}"
-                }
-              }' \
-              ${{ secrets.JIRA_URL }}/rest/api/2/issue/${{ env.jira_key }}/remotelink)
-            echo "Respuesta al enviar el enlace: $response"
-            if [[ "$response" == *"error"* ]]; then
-              echo "Error al agregar el enlace del Issue en GitHub a la Tarea en Jira. Revisa los logs."
-              exit 1
-            fi
-            echo "Enlace agregado con éxito a la Tarea en Jira."
-  
+              ],
+              "duedate": "$due_date"
+            }
+          }
+          EOF
+          )
+
+          # Construir los headers
+          auth_header=$(echo -n "${{ secrets.JIRA_USERNAME }}:${{ secrets.JIRA_API_TOKEN }}" | base64)
+
+          # Mostrar los detalles de la petición
+          echo "=== Detalles de la petición ==="
+          echo "Tipo de petición: POST"
+          echo "URL: ${{ secrets.JIRA_URL }}/rest/api/3/issue"
+          echo "Headers:"
+          echo "  Authorization: Basic $auth_header (enmascarado)"
+          echo "  Content-Type: application/json"
+          echo "Body del JSON:"
+          echo "$task_payload"
+
+      # Realizar la petición y mostrar la respuesta
+      - name: Realizar y diagnosticar la petición a Jira
+        run: |
+          echo "Realizando petición real a Jira..."
+
+          # Ejecutar la petición
+          jira_response=$(curl -v -s -X POST \
+            -H "Authorization: Basic $(echo -n ${{ secrets.JIRA_USERNAME }}:${{ secrets.JIRA_API_TOKEN }} | base64)" \
+            -H "Content-Type: application/json" \
+            -d "$task_payload" \
+            ${{ secrets.JIRA_URL }}/rest/api/3/issue 2>&1)
+
+          # Mostrar la respuesta completa
+          echo "=== Respuesta completa de Jira ==="
+          echo "$jira_response"
+
+          # Extraer la key
+          jira_key=$(echo "$jira_response" | jq -r '.key')
+          if [[ -z "$jira_key" || "$jira_key" == "null" ]]; then
+            echo "Error: No se pudo crear la tarea en Jira. Revisa los logs."
+            exit 1
+          fi
+
+          echo "Historia creada con éxito. Key de Jira: $jira_key"
