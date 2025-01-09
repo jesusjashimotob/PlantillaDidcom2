@@ -115,7 +115,7 @@
           run: |
             echo "Agregando enlace del Issue en GitHub a la Tarea en Jira..."
             response=$(curl -s -X POST \
-              -H "Authorization: Basic amVzdXMuamFzaGltb3RvQGRpZGNvbS5jb20ubXg6QVRBVFQzeEZmR0YwbWNFaW1aejBYWGJ1VHlJRm92S0VpdzdfQkxXeTRwa1JqWmZlY0RBbHQ1REUxRXBfWXhrUFVtSTZWTmZnUjRTSkNRSW9tSzBHWUR1R0pUZENUR0s5bktUaVMtM3k1bzdTOURGc2pfcjNRdm1DLVotRGJnbndhemhYeC03NTRLRXZMQkFsWEVrS19GTUk4UkhNaEVEZFd4enQ3dFVDNmVXTHVXM1dpY1MxV0xRPTVFQjcyRDZG" \
+              -H "Authorization: Basic ${{ secrets.JIRA_API_AUTH }}" \
               -H "Content-Type: application/json" \
               -d '{
                 "object": {
