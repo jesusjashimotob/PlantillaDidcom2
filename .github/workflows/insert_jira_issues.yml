@@ -1,116 +1,93 @@
-name: Integrate GitHub Issues with Jira (Provisional)
+# ------------------------------------------------------------
+# Workflow: Sync GitHub Issues with Jira
+# Autor: Ing. Jesús Jashimoto
+# Fecha: 10 de enero de 2025
+# Descripción:
+#   Este workflow sincroniza los issues creados en GitHub con Jira.
+#   1. Crea una tarea en Jira para cada nuevo issue en GitHub.
+#   2. Actualiza el JSON del issue de sincronización con:
+#      - Número del issue en GitHub.
+#      - Key de Jira.
+#      - Título del issue en GitHub.
+#   3. Agrega un enlace al issue de GitHub en Jira con:
+#      - La URL del issue.
+#      - El título del issue.
+# ------------------------------------------------------------
 
-on:
-  issues:
-    types: [opened]  # Se activa cuando se crea un nuevo issue
-  pull_request:
-    types: [opened]  # Se activa cuando se crea un nuevo pull request
+  name: Sync GitHub Issues with Jira
 
-jobs:
-  create-jira-issue:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Provisional Step - Get Project Key from Topics
-        run: echo "Simulating retrieval of project key from topics."
-
-      - name: Provisional Step - Create Issue in Jira
-        run: echo "Simulating Jira issue creation."
-
-      - name: Provisional Step - Create Label in GitHub
-        run: echo "Simulating GitHub label creation with Jira issue key."
-
-#name: Integrate GitHub Issues with Jira
-#
-#on:
-#  issues:
-#    types: [opened]  # Se activa cuando se crea un nuevo issue
-#  pull_request:
-#    types: [opened]  # Se activa cuando se crea un nuevo pull request
-#
-#jobs:
-#  create-jira-issue:
-#    runs-on: ubuntu-latest
-#
-#    steps:
-#      # Paso 1: Obtener el project key de los topics del repositorio
-#      - name: Get Project Key from Topics
-#        id: get-project-key
-#        run: |
-#          # Obtener los topics del repositorio
-#          topics=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-#            "https://api.github.com/repos/${{ github.repository }}/topics")
-#
-#          # Buscar el topic que comience con 'jira-' y convertirlo a mayúsculas
-#          project_key=$(echo "$topics" | jq -r '.names[] | select(startswith("jira-")) | ascii_upcase | gsub("JIRA-"; "")')
-#
-#          # Si se encuentra un project key, almacenarlo en la variable de entorno
-#          if [ -n "$project_key" ]; then
-#            echo "project_key=$project_key" >> $GITHUB_ENV
-#          else
-#            echo "project_key=NO_PROJECT_KEY" >> $GITHUB_ENV  # Manejo de error si no se encuentra
-#          fi
-#
-#      # Paso 2: Crear un issue en Jira
-#      - name: Create Issue in Jira
-#        env:
-#          JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
-#          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
-#          JIRA_URL: ${{ secrets.JIRA_URL }}
-#        id: create-jira-issue
-#        run: |
-#          # Imprimir la URL de la API de Jira
-#          echo "Jira API URL: $JIRA_URL/rest/api/2/issue/"
-#
-#          # Define el payload
-#          payload=$(jq -n \
-#            --arg project_key "${{ env.project_key }}" \
-#            --arg summary "${{ github.event.issue.title || github.event.pull_request.title }}" \
-#            --arg issue_type "Tarea" \
-#            '{
-#              fields: {
-#                project: { key: $project_key },
-#                summary: $summary,
-#                issuetype: { name: $issue_type }
-#              }
-#            }')
-#
-#          # Imprimir el payload para verificación
-#          echo "Payload: $payload"
-#
-#          # Enviar la solicitud POST a Jira
-#          response=$(curl -X POST -H "Content-Type: application/json" \
-#            -u "$JIRA_USERNAME:$JIRA_API_TOKEN" \
-#            --data "$payload" \
-#            "$JIRA_URL/rest/api/2/issue/")
-#          
-#          # Obtener el key del issue creado en Jira
-#          jira_issue_key=$(echo "$response" | jq -r '.key')
-#
-#          # Imprimir el key del issue de Jira
-#          echo "Jira Issue Key: $jira_issue_key"
-#
-#      # Paso 3: Crear un label en GitHub con el key del issue de Jira
-#      - name: Create Label in GitHub
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#        run: |
-#          # Crear un label con el key del issue de Jira
-#          label_name="${jira_issue_key}"
-#          label_color="f2951d"  # Cambia este color según sea necesario
-#
-#          # Definir el payload para crear el label
-#          label_payload=$(jq -n \
-#            --arg name "$label_name" \
-#            --arg color "$label_color" \
-#            '{
-#              name: $name,
-#              color: $color
-#            }')
-#
-#          # Crear el label en GitHub
-#          curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
-#            -H "Accept: application/vnd.github.v3+json" \
-#            --data "$label_payload" \
-#            "https://api.github.com/repos/${{ github.repository }}/labels"
-#
+  on:
+    issues:
+      types: [opened]
+  
+  jobs:
+    sync-issue:
+      runs-on: ubuntu-latest
+  
+      steps:
+        # 1. Verificar si el Issue Creado NO es el Issue de Sincronización
+        - name: Verificar si es el Issue de Sincronización
+          id: check-sync-issue
+          run: |
+            if [[ "${{ github.event.issue.title }}" == "Sincronización GitHub-Jira" ]]; then
+              echo "Este es el Issue de Sincronización. Deteniendo workflow."
+              exit 0
+            fi
+            echo "Continuar con la sincronización."
+  
+        # 2. Obtener el Issue de Sincronización
+        - name: Obtener Issue de Sincronización
+          id: get-sync-issue
+          run: |
+            issue=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_PAT }}" \
+              -H "Accept: application/vnd.github+json" \
+              https://api.github.com/repos/${{ github.repository }}/issues \
+              | jq -r '.[] | select(.title == "Sincronización GitHub-Jira")')
+            echo "issue_body=$(echo "$issue" | jq -r '.body')" >> $GITHUB_ENV
+            echo "issue_number=$(echo "$issue" | jq -r '.number')" >> $GITHUB_ENV
+  
+        # 3. Crear Tarea en Jira
+        - name: Crear Tarea en Jira
+          id: create-jira-task
+          run: |
+            jira_response=$(curl -s -X POST \
+              -H "Authorization: Basic $(echo -n ${{ secrets.JIRA_USERNAME }}:${{ secrets.JIRA_API_TOKEN }} | base64)" \
+              -H "Content-Type: application/json" \
+              -d '{
+                "fields": {
+                  "project": {
+                    "key": "CDP"
+                  },
+                  "summary": "${{ github.event.issue.title }}",
+                  "description": "${{ github.event.issue.body }}",
+                  "issuetype": {
+                    "name": "Task"
+                  }
+                }
+              }' \
+              ${{ secrets.JIRA_URL }}/rest/api/3/issue)
+            echo "jira_key=$(echo "$jira_response" | jq -r '.key')" >> $GITHUB_ENV
+  
+        # 4. Actualizar el JSON del Issue de Sincronización (con título)
+        - name: Actualizar Issue de Sincronización
+          run: |
+            updated_body=$(echo "${{ env.issue_body }}" | jq --arg gh_issue "${{ github.event.issue.number }}" --arg jira_task "${{ env.jira_key }}" --arg title "${{ github.event.issue.title }}" '.sync.jira.issues += [{"github_issue": $gh_issue, "jira_task": $jira_task, "github_title": $title}]')
+            curl -X PATCH -H "Authorization: Bearer ${{ secrets.GITHUB_PAT }}" \
+              -H "Accept: application/vnd.github+json" \
+              -d "{\"body\": $updated_body}" \
+              https://api.github.com/repos/${{ github.repository }}/issues/${{ env.issue_number }}
+  
+        # 5. Agregar el enlace del Issue en GitHub a la Tarea en Jira
+        - name: Enviar enlace del Issue de GitHub a Jira
+          run: |
+            curl -X POST \
+              -H "Authorization: Basic $(echo -n ${{ secrets.JIRA_USERNAME }}:${{ secrets.JIRA_API_TOKEN }} | base64)" \
+              -H "Content-Type: application/json" \
+              -d '{
+                "object": {
+                  "url": "${{ github.event.issue.html_url }}",
+                  "title": "${{ github.event.issue.title }}"
+                }
+              }' \
+              ${{ secrets.JIRA_URL }}/rest/api/2/issue/${{ env.jira_key }}/remotelink
+  
