@@ -64,7 +64,6 @@
                     "key": "CDP"
                   },
                   "summary": "${{ github.event.issue.title }}",
-                  "description": "${{ github.event.issue.body }}",
                   "issuetype": {
                     "name": "Task"
                   }
