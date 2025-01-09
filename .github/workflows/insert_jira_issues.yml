@@ -20,6 +20,9 @@
     issues:
       types: [opened]
   
+  env:
+    SYNC_ISSUE_NUMBER: 21 # Número del Issue de Sincronización, puedes modificarlo manualmente
+  
   jobs:
     sync-issue:
       runs-on: ubuntu-latest
@@ -35,16 +38,18 @@
             fi
             echo "Continuar con la sincronización."
   
-        # 2. Obtener el Issue de Sincronización
-        - name: Obtener Issue de Sincronización
+        # 2. (Opcional) Obtener dinámicamente el Issue de Sincronización
+        # Solo se usará si no se establece el SYNC_ISSUE_NUMBER manualmente
+        - name: Obtener Issue de Sincronización (opcional)
+          if: ${{ env.SYNC_ISSUE_NUMBER == '' }}
           id: get-sync-issue
           run: |
             issue=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_PAT }}" \
               -H "Accept: application/vnd.github+json" \
               https://api.github.com/repos/${{ github.repository }}/issues \
               | jq -r '.[] | select(.title == "Sincronización GitHub-Jira")')
-            echo "issue_body=$(echo "$issue" | jq -r '.body')" >> $GITHUB_ENV
             echo "issue_number=$(echo "$issue" | jq -r '.number')" >> $GITHUB_ENV
+            echo "issue_body=$(echo "$issue" | jq -r '.body')" >> $GITHUB_ENV
   
         # 3. Crear Tarea en Jira
         - name: Crear Tarea en Jira
@@ -68,14 +73,23 @@
               ${{ secrets.JIRA_URL }}/rest/api/3/issue)
             echo "jira_key=$(echo "$jira_response" | jq -r '.key')" >> $GITHUB_ENV
   
-        # 4. Actualizar el JSON del Issue de Sincronización (con título)
-        - name: Actualizar Issue de Sincronización
+        # 4. Actualizar el JSON del Issue de Sincronización
+        - name: Obtener y Actualizar Issue de Sincronización
           run: |
-            updated_body=$(echo "${{ env.issue_body }}" | jq --arg gh_issue "${{ github.event.issue.number }}" --arg jira_task "${{ env.jira_key }}" --arg title "${{ github.event.issue.title }}" '.sync.jira.issues += [{"github_issue": $gh_issue, "jira_task": $jira_task, "github_title": $title}]')
+            issue_number=${{ env.SYNC_ISSUE_NUMBER }}
+            if [[ -z "$issue_number" ]]; then
+              issue_number=${{ env.issue_number }}
+            fi
+            issue_body=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_PAT }}" \
+              -H "Accept: application/vnd.github+json" \
+              https://api.github.com/repos/${{ github.repository }}/issues/$issue_number | jq -r '.body')
+  
+            updated_body=$(echo "$issue_body" | jq --arg gh_issue "${{ github.event.issue.number }}" --arg jira_task "${{ env.jira_key }}" --arg title "${{ github.event.issue.title }}" '.sync.jira.issues += [{"github_issue": $gh_issue, "jira_task": $jira_task, "github_title": $title}]')
+  
             curl -X PATCH -H "Authorization: Bearer ${{ secrets.GITHUB_PAT }}" \
               -H "Accept: application/vnd.github+json" \
               -d "{\"body\": $updated_body}" \
-              https://api.github.com/repos/${{ github.repository }}/issues/${{ env.issue_number }}
+              https://api.github.com/repos/${{ github.repository }}/issues/$issue_number
   
         # 5. Agregar el enlace del Issue en GitHub a la Tarea en Jira
         - name: Enviar enlace del Issue de GitHub a Jira
