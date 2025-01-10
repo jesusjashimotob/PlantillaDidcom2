@@ -104,12 +104,17 @@
             updated_body=$(echo "$issue_body" | jq --arg gh_issue "${{ github.event.issue.number }}" --arg jira_task "${{ env.jira_key }}" --arg title "${{ github.event.issue.title }}" '.sync.jira.issues += [{"github_issue": $gh_issue, "jira_task": $jira_task, "github_title": $title}]')
             echo "Body actualizado del Issue de Sincronización: $updated_body"
   
-            curl -X PATCH -H "Authorization: Bearer ${{ secrets.GITHUB_PAT }}" \
-              -H "Accept: application/vnd.github+json" \
-              -d "{\"body\": $updated_body}" \
-              https://api.github.com/repos/${{ github.repository }}/issues/$issue_number
-            echo "Issue de Sincronización actualizado con éxito."
-  
+            # Enviar la actualización
+              response_update=$(curl -s -X PATCH \
+                -H "Authorization: Bearer ${{ secrets.GITHUB_PAT }}" \
+                -H "Accept: application/vnd.github+json" \
+                -d "{\"body\": $updated_body}" \
+                https://api.github.com/repos/${{ github.repository }}/issues/$issue_number)
+              echo "Respuesta de la API tras la actualización:"
+              echo "$response_update"
+
+              echo "Issue de Sincronización actualizado con éxito."
+      
         # 5. Agregar el enlace del Issue en GitHub a la Tarea en Jira
         - name: Enviar enlace del Issue de GitHub a Jira
           run: |
