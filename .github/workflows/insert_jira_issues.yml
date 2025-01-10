@@ -15,6 +15,11 @@
   env:
     SYNC_ISSUE_NUMBER: 21 # Número del Issue de Sincronización, puedes modificarlo manualmente
   
+  permissions:
+    issues: write       # Permite escribir en los issues (para agregar etiquetas)
+    contents: read      # Permite leer contenido del repositorio
+
+  
   jobs:
     sync-issue:
       runs-on: ubuntu-latest
