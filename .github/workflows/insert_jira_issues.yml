@@ -70,7 +70,7 @@
           run: |
             echo "Agregando etiqueta jira-key al Issue en GitHub..."
             curl -s -X POST \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_PAT }}" \
+            -H "Authorization: Bearer ${{ secrets.ISSUE_TOKEN }}" \
             -H "Accept: application/vnd.github+json" \
             -d '{
               "labels": ["jira-$GITHUB_ENV:jira_key"]
