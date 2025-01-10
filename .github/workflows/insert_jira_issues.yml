@@ -128,8 +128,9 @@
             # Enviar la actualización
 
             echo "Actualizando el Issue de Sincronización..."
-            echo "$AUTH_HEADERR"
-
+            echo "Authorization: Bearer ${{ secrets.GITHUB_PAT }}"
+            echo https://api.github.com/repos/${{ github.repository }}/issues/$issue_number)
+            
             response_update=$(curl -s -X PATCH \
             -H "$AUTH_HEADER" \
             -H "Accept: application/vnd.github+json" \
