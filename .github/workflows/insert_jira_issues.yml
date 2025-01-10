@@ -109,7 +109,7 @@
         # 4.2 Actualizar el JSON del Issue de Sincronización
         - name: Actualizar Issue de Sincronización
           env:
-            GH_TOKEN: ${{ secrets.GITHUB_PAT }}
+            AUTH_HEADER: "Authorization: Bearer ${{ secrets.GITHUB_PAT }}"
           run: |
             echo "Actualizando el Issue de Sincronización..."
             issue_number=${{ env.SYNC_ISSUE_NUMBER }}
@@ -128,10 +128,8 @@
             # Enviar la actualización
 
             echo "Actualizando el Issue de Sincronización..."
-            TOKEN="${{ secrets.GITHUB_PAT }}"
-            AUTH_HEADER="Authorization: Bearer $TOKEN"
-            echo "Encabezado calculado: $AUTH_HEADER"
-            
+            echo "$AUTH_HEADERR"
+
             response_update=$(curl -s -X PATCH \
             -H "$AUTH_HEADER" \
             -H "Accept: application/vnd.github+json" \
