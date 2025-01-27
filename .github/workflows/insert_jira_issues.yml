@@ -1,11 +1,9 @@
 # ------------------------------------------------------------
 # Workflow: Sync GitHub Issues with Jira
 # Autor: Ing. Jesús Jashimoto
-# Fecha: 27 de enero de 2025
+# Fecha: 10 de enero de 2025
 # Descripción:
 #   Este workflow sincroniza los issues creados en GitHub con Jira.
-#   Se omitira la creacion de un nuevo issue si el issue ya tiene el label jira-key definido
-#   Si no tiene definido el jira-key, agregara una nueva tarea al backlog del jira
 # ------------------------------------------------------------
 
   name: Sync GitHub Issues with Jira
@@ -41,12 +39,15 @@
             if echo "$labels" | grep -q "^jira-"; then
               echo "El Issue ya tiene una etiqueta jira-key. No se creará una nueva tarea en Jira."
               echo "jira_key=$(echo "$labels" | grep -o 'jira-[^ ]*')" >> $GITHUB_ENV
-              exit 0
+              echo "label_exists=true" >> $GITHUB_ENV
+            else
+              echo "No se encontró ninguna etiqueta jira-key. Continuando con la creación de la tarea en Jira."
+              echo "label_exists=false" >> $GITHUB_ENV
             fi
-            echo "No se encontró ninguna etiqueta jira-key. Continuando con la creación de la tarea en Jira."
   
         # 2. Crear Tarea en Jira
         - name: Crear Tarea en Jira
+          if: env.label_exists == 'false'
           id: create-jira-task
           run: |
             echo "Creando tarea en Jira..."
@@ -86,7 +87,7 @@
   
         # 3. Agregar etiqueta jira-key al Issue en GitHub
         - name: Agregar etiqueta al Issue en GitHub
-          if: steps.check-label.outcome == "success"
+          if: env.label_exists == 'false'
           run: |
             echo "Agregando etiqueta jira-key al Issue en GitHub..."
             curl -s -X POST \
@@ -100,7 +101,6 @@
   
         # 4. Enviar enlace del Issue de GitHub a la tarea en Jira
         - name: Enviar enlace del Issue de GitHub a Jira
-          if: steps.check-label.outcome == "success"
           run: |
             echo "Agregando enlace del Issue en GitHub a la Tarea en Jira..."
             response=$(curl -s -X POST \
