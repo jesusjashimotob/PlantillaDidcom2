@@ -38,7 +38,9 @@
   
             if echo "$labels" | grep -q "^jira-"; then
               echo "El Issue ya tiene una etiqueta jira-key. No se creará una nueva tarea en Jira."
-              echo "jira_key=$(echo "$labels" | grep -o 'jira-[^ ]*')" >> $GITHUB_ENV
+              raw_jira_key=$(echo "$labels" | grep -o 'jira-[^ ]*')
+              jira_key=${raw_jira_key#jira-}
+              echo "jira_key=$jira_key" >> $GITHUB_ENV
               echo "label_exists=true" >> $GITHUB_ENV
             else
               echo "No se encontró ninguna etiqueta jira-key. Continuando con la creación de la tarea en Jira."
